@@ -1,0 +1,69 @@
+﻿@implements IDisposable
+@using JiaoMaCupScoreRecorder.Models
+@using JiaoMaCupScoreRecorder.Utils
+@inherits LayoutComponentBase
+@inject IJSRuntime _js;
+@inject StateContainer _stateContainer;
+
+<div class="page">
+    <div class="sidebar">
+        <NavMenu/>
+    </div>
+
+    <main>
+        <div class="top-row">
+            @if (!_stateContainer.IsGoogleLoggedIn)
+            {
+                <button class="btn btn-primary" id="authorize_button" @onclick="OnAuthorizeClick">Authorize</button>
+            }
+            else if (_stateContainer.IsGoogleLoggedIn)
+            {
+                <button class="btn btn-primary" id="signout_button" @onclick="OnSignOutClick">Sign Out</button>
+                <div disabled class="btn m-1 disabled btn-success">已登入</div>
+            }
+
+        </div>
+
+        <article class="content px-4">
+            @Body
+        </article>
+    </main>
+</div>
+
+@code
+{
+    private async Task OnAuthorizeClick(EventArgs e)
+    {
+        _stateContainer.IsGoogleLoggedIn = await _js.InvokeAsync<bool>("handleAuthClick", e);
+
+    // await Task.Delay(3000);
+    // await GetGoogleSignInStatus();
+    }
+
+    private async Task OnSignOutClick(EventArgs e)
+    {
+        _stateContainer.IsGoogleLoggedIn = await _js.InvokeAsync<bool>("handleSignoutClick", e);
+
+    // await Task.Delay(3000);
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        _stateContainer.OnChange += StateHasChanged;
+        await _js.InvokeVoidAsync("handleClientLoad");
+        await Task.Delay(3000);
+        await GetGoogleSignInStatus();
+        await base.OnInitializedAsync();
+    }
+
+    [JSInvokable]
+    public static Task<GoogleSheetsAuthModel> GetGoogleSheetsAuthConfig()
+    {
+        var result = StaticServiceCollectUtils.GetStaticService<GoogleSheetsAuthModel>();
+        return Task.FromResult(result);
+    }
+
+    private async Task GetGoogleSignInStatus() { _stateContainer.IsGoogleLoggedIn = await _js.InvokeAsync<bool>("getSigninStatus"); }
+
+    public void Dispose() { _stateContainer.OnChange -= StateHasChanged; }
+}

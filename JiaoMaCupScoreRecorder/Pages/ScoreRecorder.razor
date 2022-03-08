@@ -1,0 +1,156 @@
+﻿@page "/ScoreRecorder"
+@using JiaoMaCupScoreRecorder.Extensions
+@using JiaoMaCupScoreRecorder.Models
+@using JiaoMaCupScoreRecorder.Services.Interfaces
+@using JiaoMaCupScoreRecorder.Utils
+@using Google.Apis.Sheets.v4
+@inject SpreadsheetModel _spreadsheet
+@inject IGoogleSheetService _sheetService
+@inject StateContainer _stateContainer
+<PageTitle>蕉媽盃成績紀錄器</PageTitle>
+<h3>成績紀錄器</h3>
+<div>
+    <label for="game">遊戲：</label>
+    <select name="game" class="form-select" @onchange="OnGameSelectChange">
+        <option value="@string.Empty">請選擇</option>
+        @foreach (var gameMap in _gameMapList)
+        {
+            <option value="@gameMap.SpreadsheetId">@gameMap.GameName</option>
+        }
+    </select>
+</div>
+<div>
+    <label for="week">週次：</label>
+    <select name="week" class="form-select" @onchange="OnWeekSelectChange">
+        <option value="@string.Empty">請選擇</option>
+        @for (var i = 1; i < _weekList.Count; i++)
+        {
+            <option value="@_weekList[i]">@_weekList[i]</option>
+        }
+    </select>
+</div>
+<div>
+    @if (_sheetData.Any())
+    {
+        <table class="table table-bordered table-striped table-hover mt-3">
+            <thead>
+            <tr>
+                <th>Discord Id</th>
+                <th>稱呼</th>
+                <th>積分</th>
+                <th>圖片網址</th>
+            </tr>
+            </thead>
+
+            <tbody>
+            @foreach (var data in _sheetData)
+            {
+                <tr @key="data">
+                    <td style="width: 300px">@data.DiscordId</td>
+                    <td style="width: 300px;">@data.Name</td>
+                    <td style="width: 100px;">
+                        <input type="text" name="point" class="form-control" @bind="@data.Point"/>
+                    </td>
+                    <td>
+                        <input type="text" name="imageUrl" class="form-control" @bind="@data.ImageUrl"/>
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+        <button type="button" class="btn btn-primary" @onclick="UpdateSheetData">送出</button>
+    }
+</div>
+
+@code {
+    private readonly IList<string> _weekList = StringConst.Sheets;
+    private IList<GameMapModel> _gameMapList = new List<GameMapModel>();
+    private IList<ScoreDataModel> _sheetData = new List<ScoreDataModel>();
+
+    private string _currentWeek = string.Empty;
+    private string _currentGameSpreadsheetId = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _gameMapList = GameMapUtils.GetGameMapList(_spreadsheet);
+        await base.OnInitializedAsync();
+    }
+
+    private async Task OnGameSelectChange(ChangeEventArgs args)
+    {
+        _currentGameSpreadsheetId = args.Value as string ?? string.Empty;
+        await GetSheetData();
+    }
+
+    private async Task OnWeekSelectChange(ChangeEventArgs args)
+    {
+        _currentWeek = args.Value as string ?? string.Empty;
+        await GetSheetData();
+    }
+
+    private async Task GetSheetData()
+    {
+        if (_currentGameSpreadsheetId == string.Empty || _currentWeek == string.Empty) return;
+        var requestBody = new GetSheetValuesRequestBodyModel
+        {
+            SpreadsheetId = _currentGameSpreadsheetId,
+            MajorDimensions = SpreadsheetsResource.ValuesResource.BatchGetRequest.MajorDimensionEnum.ROWS,
+            Range = $"{_currentWeek}!A2:D"
+        };
+        var sheetData = await _sheetService.GetSheet(requestBody);
+        _sheetData = sheetData.SelectMany(x =>
+        {
+            var result = new List<ScoreDataModel>();
+            switch (x.Count)
+            {
+                case 2:
+                    result.Add(new ScoreDataModel
+                    {
+                        DiscordId = x[0],
+                        Name = x[1]
+                    });
+                    break;
+                case 3:
+                    result.Add(new ScoreDataModel
+                    {
+                        DiscordId = x[0],
+                        Name = x[1],
+                        Point = int.Parse(x[2])
+                    });
+                    break;
+                case 4:
+                    result.Add(new ScoreDataModel
+                    {
+                        DiscordId = x[0],
+                        Name = x[1],
+                        Point = int.Parse(x[2]),
+                        ImageUrl = x[3]
+                    });
+                    break;
+            }
+            return result;
+        }).ToList();
+    }
+
+    private async Task UpdateSheetData()
+    {
+        var data = _sheetData.Select(x => new List<object>
+        {
+            x.DiscordId,
+            x.Name,
+            x.Point.ToString(),
+            x.ImageUrl
+        } as IList<object>).ToList();
+        var requestData = new SheetValuesRequestDataModel
+        {
+            MajorDimension = "ROWS",
+            Range = $"{_currentWeek}!A2:D{data.Count + 1}",
+            Values = data,
+            ValueInputOption = "USER_ENTERED"
+        };
+        var requestBody = requestData.ToBatchUpdateValuesRequestModel();
+
+        await _sheetService.BatchUpdateValues(_currentGameSpreadsheetId, requestBody);
+    }
+
+}
