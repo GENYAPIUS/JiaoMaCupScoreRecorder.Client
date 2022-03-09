@@ -24,4 +24,4 @@ If not need AOT Compilation, set it `false`
      - `Production`
 4. Copy `appsettings.json` to `./JiaoMaCupScoreRecorder/wwwroot`
 5. Open Terminal, enter `dotnet publish -c Release -o <output_path>`
-6. If it succeeded, the <output_path> should have files.
+6. If it succeeds, the <output_path> should have files.
