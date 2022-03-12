@@ -10,6 +10,7 @@
 
 	<PropertyGroup>
 		<RunAOTCompilation>true</RunAOTCompilation>
+		<UseRazorSourceGenerator>false</UseRazorSourceGenerator>
 	</PropertyGroup>
 
 	<PropertyGroup>

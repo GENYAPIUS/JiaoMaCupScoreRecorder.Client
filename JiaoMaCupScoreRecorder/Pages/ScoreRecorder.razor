@@ -134,7 +134,21 @@
 
     private async Task UpdateSheetData()
     {
-        var data = _sheetData.Select(x => new List<object>
+        var changedData = _sheetData.Select(x => new ScoreDataModel
+        {
+            DiscordId = x.DiscordId,
+            Name = x.Name,
+            Point = x.Point,
+            ImageUrl = x.ImageUrl
+        }).ToList();
+        var orderedData = _sheetData.OrderByDescending(x => x.Point).ToList();
+
+        foreach (var player in _sheetData)
+        {
+            GivePoint(orderedData, player, changedData);
+        }
+
+        var data = changedData.Select(x => new List<object>
         {
             x.DiscordId,
             x.Name,
@@ -151,6 +165,27 @@
         var requestBody = requestData.ToBatchUpdateValuesRequestModel();
 
         await _sheetService.BatchUpdateValues(_currentGameSpreadsheetId, requestBody);
+    }
+
+    private void GivePoint(IEnumerable<ScoreDataModel> orderedData, ScoreDataModel player, IList<ScoreDataModel> changedData)
+    {
+        if (player.ImageUrl is "" or null)
+        {
+            changedData[_sheetData.IndexOf(player)].Point = IntConst.NoImagePoint;
+            return;
+        }
+        var rank = 1;
+        foreach (var orderedPlayer in orderedData)
+        {
+            if (player.Point == orderedPlayer.Point)
+            {
+                changedData[_sheetData.IndexOf(player)].Point = IntConst.PointTable[rank - 1];
+
+                break;
+            }
+
+            rank++;
+        }
     }
 
 }

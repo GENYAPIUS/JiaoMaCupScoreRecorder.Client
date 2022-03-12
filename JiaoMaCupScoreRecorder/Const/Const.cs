@@ -31,3 +31,24 @@ public static class StringConst
         "第十二週"
     };
 }
+
+public static class IntConst
+{
+    public static readonly int[] PointTable =
+    {
+        20,
+        15,
+        10,
+        9,
+        8,
+        7,
+        6,
+        5,
+        4,
+        3,
+        2,
+        1
+    };
+
+    public const int NoImagePoint = 0;
+}
